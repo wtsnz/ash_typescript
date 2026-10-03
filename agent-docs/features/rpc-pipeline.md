@@ -263,9 +263,15 @@ Processing flow:
   `ErrorBuilder` clause (`invalid_query_opts`, `filter_not_supported`,
   `sort_not_supported`, `pagination_not_supported`, `invalid_pagination`).
 - **Query build**: the load spec becomes `{rel_name, %Ash.Query{}}` — built
-  with `Ash.Query.for_read(Custom.relationship_read_action(rel))` plus
+  with `Ash.Query.new(dest)` plus
   `filter_input`/`sort_input`/`page`/`limit`/`offset` and nested
-  select/load. The extraction template is unchanged by the envelope.
+  select/load. It is deliberately not run through `for_read`: Ash validates
+  it against the relationship's read action at load time, with the parent's
+  actor and `authorize?`. A query already validated for that action would be
+  used as-is, dropping both. One consequence is that the read action's
+  preparations run after the client's options, so a preparation's sort comes
+  after the client's `sort` (the reverse of a top-level read). The extraction
+  template is unchanged by the envelope.
 - **Load restrictions**: nothing envelope-specific. `allowed_loads`/`denied_loads`
   are enforced inside the field-selection walk (see below), so an envelope's
   nested loads are checked as they are produced — before the `%Ash.Query{}` is

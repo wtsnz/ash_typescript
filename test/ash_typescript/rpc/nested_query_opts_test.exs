@@ -93,7 +93,9 @@ defmodule AshTypescript.Rpc.NestedQueryOptsTest do
       assert select == [:id]
       assert [{:comments, %Ash.Query{} = query}] = load
       assert query.resource == AshTypescript.Test.TodoComment
-      assert query.action.name == :read
+      # Left unvalidated so Ash runs the relationship's read action at load
+      # time with the parent's actor (see NestedQueryOptsActorTest).
+      assert query.action == nil
       assert query.page[:limit] == 3
       assert query.page[:count] == true
       refute is_nil(query.filter)
@@ -189,7 +191,6 @@ defmodule AshTypescript.Rpc.NestedQueryOptsTest do
       assert {:ok, {_s, [{:offset_comments, %Ash.Query{} = query}], _t}} =
                process_fields(:read, raw)
 
-      assert query.action.name == :read_offset_only
       assert query.page[:limit] == 2
       assert query.page[:offset] == 1
     end
@@ -207,7 +208,6 @@ defmodule AshTypescript.Rpc.NestedQueryOptsTest do
       assert {:ok, {_s, [{:keyset_comments, %Ash.Query{} = query}], _t}} =
                process_fields(:read, raw)
 
-      assert query.action.name == :read_keyset_only
       assert query.page[:limit] == 2
       assert query.page[:after] == "cursor"
     end
