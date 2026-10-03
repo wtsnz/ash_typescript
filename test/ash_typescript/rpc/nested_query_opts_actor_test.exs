@@ -317,6 +317,15 @@ defmodule AshTypescript.Rpc.NestedQueryOptsActorTest do
         })
 
       assert bodies(filtered["comments"]) == @internal_bodies
+
+      # Order-sensitive, with a limit that actually binds: the first comment by
+      # body is internal, so it is only returned if the actor reached the read.
+      sorted =
+        get_ticket("actor_test_get_ticket", @agent, ticket_id, %{
+          "comments" => %{"fields" => ["body"], "sort" => "body", "limit" => 1}
+        })
+
+      assert Enum.map(sorted["comments"], & &1["body"]) == ["internal 1"]
     end
 
     test "an actor without access only gets the permitted comments", %{ticket_id: ticket_id} do
