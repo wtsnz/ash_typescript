@@ -791,9 +791,13 @@ defmodule AshTypescript.Rpc.FieldProcessing.FieldSelector do
         sort -> FieldFormatter.format_sort_string(sort, input_formatter)
       end
 
+    # Not validated for an action here: when loading, Ash validates it against
+    # the relationship's read action with the parent's actor and `authorize?`.
+    # A query already run through `for_read/2` is used as-is, which would
+    # drop both.
     query =
       dest
-      |> Ash.Query.for_read(Custom.relationship_read_action(rel))
+      |> Ash.Query.new()
       |> then(fn q ->
         if parsed_filter, do: Ash.Query.filter_input(q, parsed_filter), else: q
       end)
