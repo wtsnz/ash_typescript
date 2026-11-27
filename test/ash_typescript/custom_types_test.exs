@@ -175,4 +175,54 @@ defmodule AshTypescript.CustomTypesTest do
       assert result =~ "priorityScore: CustomTypes.PriorityScore | null"
     end
   end
+
+  describe "parameterized custom types with typescript_type_name/1" do
+    defmodule ParameterizedId do
+      use Ash.Type
+
+      @impl true
+      def storage_type(_), do: :uuid
+
+      @impl true
+      def constraints, do: [prefix: [type: :string, required: true]]
+
+      @impl true
+      def cast_input(value, _), do: {:ok, value}
+
+      @impl true
+      def cast_stored(value, _), do: {:ok, value}
+
+      @impl true
+      def dump_to_native(value, _), do: {:ok, value}
+
+      def typescript_type_name(constraints) do
+        prefix = Keyword.fetch!(constraints, :prefix)
+        ~s|string & { readonly __id: "#{prefix}" }|
+      end
+    end
+
+    test "detects modules implementing typescript_type_name/1 as custom types" do
+      assert AshTypescript.TypeSystem.Introspection.is_custom_type?(ParameterizedId)
+    end
+
+    test "passes constraints to typescript_type_name/1" do
+      assert Codegen.get_ts_type(%{type: ParameterizedId, constraints: [prefix: "order"]}) ==
+               ~s|string & { readonly __id: "order" }|
+
+      assert Codegen.get_ts_type(%{type: ParameterizedId, constraints: [prefix: "shop"]}) ==
+               ~s|string & { readonly __id: "shop" }|
+
+      assert Codegen.get_ts_type(%{
+               type: {:array, ParameterizedId},
+               constraints: [items: [prefix: "order"]]
+             }) == ~s|Array<string & { readonly __id: "order" }>|
+    end
+
+    test "maps inline custom type expressions to string[] validation errors" do
+      assert AshTypescript.Rpc.ValidationErrorSchemas.map_error_type(
+               ParameterizedId,
+               prefix: "order"
+             ) == "string[]"
+    end
+  end
 end

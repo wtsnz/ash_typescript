@@ -231,7 +231,7 @@ defmodule AshTypescript.Manifest.Decorator do
   # Only types whose effective module exports `typescript_field_names/0` get
   # decorated. This covers NewTypes, TypedStructs, and any other custom type
   # module that opts into client field renaming.
-  defp build_type_custom(%Manifest.Type{} = type) do
+  defp build_type_custom(%Manifest.Type{constraints: constraints} = type) do
     module = Manifest.Type.effective_module(type)
 
     if Helpers.has_typescript_field_names?(module) or type_name_exported?(module) do
@@ -243,19 +243,21 @@ defmodule AshTypescript.Manifest.Decorator do
       %{
         field_name_mappings: field_mappings,
         reverse_field_name_mappings: reverse_map(field_mappings),
-        type_name: resolve_type_module_name(module)
+        type_name: resolve_type_module_name(module, constraints)
       }
     end
   end
 
   defp type_name_exported?(module) when is_atom(module) and not is_nil(module) do
-    Code.ensure_loaded?(module) and function_exported?(module, :typescript_type_name, 0)
+    Code.ensure_loaded?(module) and
+      (function_exported?(module, :typescript_type_name, 1) or
+         function_exported?(module, :typescript_type_name, 0))
   end
 
   defp type_name_exported?(_), do: false
 
-  defp resolve_type_module_name(module) do
-    if type_name_exported?(module), do: module.typescript_type_name(), else: nil
+  defp resolve_type_module_name(module, constraints) do
+    AshTypescript.TypeSystem.Introspection.custom_type_name(module, constraints)
   end
 
   # ─────────────────────────────────────────────────────────────────

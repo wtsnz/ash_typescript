@@ -80,6 +80,23 @@ defmodule AshTypescript.Codegen.ZodSchemaGenerator do
   @impl true
   def mapping_overrides, do: AshTypescript.Rpc.zod_mapping_overrides()
   @impl true
+  def custom_type_schema(module, constraints) do
+    cond do
+      not Code.ensure_loaded?(module) ->
+        nil
+
+      function_exported?(module, :typescript_zod_schema, 1) ->
+        module.typescript_zod_schema(constraints)
+
+      function_exported?(module, :typescript_zod_schema, 0) ->
+        module.typescript_zod_schema()
+
+      true ->
+        nil
+    end
+  end
+
+  @impl true
   def custom_imports, do: AshTypescript.Rpc.zod_import_into_generated()
   @impl true
   def aggregate_types, do: @aggregate_types

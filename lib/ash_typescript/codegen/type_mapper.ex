@@ -236,10 +236,12 @@ defmodule AshTypescript.Codegen.TypeMapper do
   entries, and known third-party types with bespoke aliases.
   """
   @spec unknown_module_mapping(Type.t()) :: {:ok, String.t()} | :unsupported
-  def unknown_module_mapping(%Type{module: module} = type_info) do
+  def unknown_module_mapping(%Type{module: module, constraints: constraints} = type_info) do
     cond do
       is_atom(module) and not is_nil(module) and Introspection.is_custom_type?(module) ->
-        {:ok, AshTypescript.Manifest.Custom.type_name(type_info) || module.typescript_type_name()}
+        {:ok,
+         AshTypescript.Manifest.Custom.type_name(type_info) ||
+           Introspection.custom_type_name(module, constraints)}
 
       (override = get_type_mapping_override(module)) != nil ->
         {:ok, override}

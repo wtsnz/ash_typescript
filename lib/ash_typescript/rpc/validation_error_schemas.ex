@@ -70,7 +70,7 @@ defmodule AshTypescript.Rpc.ValidationErrorSchemas do
 
       _ ->
         if Introspection.is_custom_type?(type_info.module) do
-          "#{type_info.module.typescript_type_name()}ValidationErrors"
+          custom_type_error_name(type_info.module, type_info.constraints || [])
         else
           "string[]"
         end
@@ -93,7 +93,7 @@ defmodule AshTypescript.Rpc.ValidationErrorSchemas do
       # Custom types with typescript_type_name - check original type BEFORE using
       # unwrapped type, so NewTypes with custom type names are respected (issue #52)
       Introspection.is_custom_type?(type) ->
-        "#{type.typescript_type_name()}ValidationErrors"
+        custom_type_error_name(type, constraints)
 
       # Embedded resources
       is_embedded_resource?(unwrapped_type) ->
@@ -147,7 +147,7 @@ defmodule AshTypescript.Rpc.ValidationErrorSchemas do
 
       # instance_of pointing to module with typescript_type_name
       instance_of && Introspection.is_custom_type?(instance_of) ->
-        "#{instance_of.typescript_type_name()}ValidationErrors"
+        custom_type_error_name(instance_of, constraints)
 
       # Has fields constraint - inline object type
       Keyword.has_key?(constraints, :fields) ->
@@ -156,6 +156,25 @@ defmodule AshTypescript.Rpc.ValidationErrorSchemas do
       # Fallback
       true ->
         "Record<string, any>"
+    end
+  end
+
+  @ts_identifier_path ~r/\A[A-Za-z_$][\w$]*(\.[A-Za-z_$][\w$]*)*\z/
+
+  # Only named TypeScript identifiers (like `CustomTypes.ColorPalette`) can be suffixed
+  # with `ValidationErrors`; inline type expressions (like `string & { readonly __id: "order" }`)
+  # represent scalar values and map to `string[]`.
+  defp custom_type_error_name(module, constraints) do
+    case Introspection.custom_type_name(module, constraints) do
+      name when is_binary(name) ->
+        if Regex.match?(@ts_identifier_path, name) do
+          "#{name}ValidationErrors"
+        else
+          "string[]"
+        end
+
+      _ ->
+        "string[]"
     end
   end
 
