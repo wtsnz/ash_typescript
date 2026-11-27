@@ -134,4 +134,9 @@ defmodule AshTypescript.Codegen.SchemaFormatter do
 
   @doc "The import path for the validation library from application config."
   @callback configured_import_path() :: String.t()
+
+  @doc "Returns a schema string from a custom Ash type module's own callback, or nil."
+  @callback custom_type_schema(module :: module(), constraints :: keyword()) :: String.t() | nil
+
+  @optional_callbacks [custom_type_schema: 2]
 end

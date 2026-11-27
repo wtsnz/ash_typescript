@@ -165,9 +165,11 @@ defmodule AshTypescript.TypeSystem.Introspection do
   def unwrap_new_type(type, constraints), do: {type, constraints}
 
   @doc """
-  Checks if a type is a custom Ash type with a typescript_type_name callback.
+  Checks if a type is a custom Ash type with a `typescript_type_name/0` or
+  `typescript_type_name/1` callback.
 
-  Custom types are Ash types that define a `typescript_type_name/0` callback
+  Custom types are Ash types that define a `typescript_type_name/0` or
+  `typescript_type_name/1` (receiving the attribute/argument constraints) callback
   to specify their TypeScript representation.
 
   ## Examples
@@ -180,11 +182,36 @@ defmodule AshTypescript.TypeSystem.Introspection do
   """
   def is_custom_type?(type) when is_atom(type) and not is_nil(type) do
     Code.ensure_loaded?(type) and
-      function_exported?(type, :typescript_type_name, 0) and
+      (function_exported?(type, :typescript_type_name, 1) or
+         function_exported?(type, :typescript_type_name, 0)) and
       Spark.implements_behaviour?(type, Ash.Type)
   end
 
   def is_custom_type?(_), do: false
+
+  @doc """
+  Resolves the TypeScript type name for a custom type module, passing `constraints`
+  when `typescript_type_name/1` is exported and falling back to `typescript_type_name/0`.
+  """
+  def custom_type_name(type, constraints \\ [])
+
+  def custom_type_name(type, constraints) when is_atom(type) and not is_nil(type) do
+    cond do
+      not Code.ensure_loaded?(type) ->
+        nil
+
+      function_exported?(type, :typescript_type_name, 1) ->
+        type.typescript_type_name(constraints || [])
+
+      function_exported?(type, :typescript_type_name, 0) ->
+        type.typescript_type_name()
+
+      true ->
+        nil
+    end
+  end
+
+  def custom_type_name(_, _), do: nil
 
   # ---------------------------------------------------------------------------
   # TypeScript Field Names Helpers

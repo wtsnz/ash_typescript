@@ -753,18 +753,10 @@ defmodule AshTypescript.Codegen.ResourceSchemas do
     end
   end
 
-  defp spec_type_name(%Ash.Info.Manifest.Type{module: module} = type)
+  defp spec_type_name(%Ash.Info.Manifest.Type{module: module, constraints: constraints} = type)
        when is_atom(module) and not is_nil(module) do
-    cond do
-      (name = AshTypescript.Manifest.Custom.type_name(type)) != nil ->
-        name
-
-      Code.ensure_loaded?(module) and function_exported?(module, :typescript_type_name, 0) ->
-        module.typescript_type_name()
-
-      true ->
-        nil
-    end
+    AshTypescript.Manifest.Custom.type_name(type) ||
+      AshTypescript.TypeSystem.Introspection.custom_type_name(module, constraints)
   end
 
   defp spec_type_name(_), do: nil

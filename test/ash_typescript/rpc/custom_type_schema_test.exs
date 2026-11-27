@@ -284,4 +284,65 @@ defmodule AshTypescript.Rpc.CustomTypeSchemaTest do
       end
     end
   end
+
+  describe "module-defined custom schema callbacks" do
+    defmodule PrefixedUuidType do
+      @moduledoc false
+      use Ash.Type
+
+      @impl true
+      def storage_type(_), do: :uuid
+      @impl true
+      def constraints, do: [prefix: [type: :string, required: true]]
+      @impl true
+      def cast_input(v, _), do: {:ok, v}
+      @impl true
+      def cast_stored(v, _), do: {:ok, v}
+      @impl true
+      def dump_to_native(v, _), do: {:ok, v}
+
+      def typescript_type_name(constraints) do
+        ~s|string & { readonly __id: "#{Keyword.fetch!(constraints, :prefix)}" }|
+      end
+
+      def typescript_zod_schema(constraints) do
+        prefix = Keyword.fetch!(constraints, :prefix)
+        ~s|z.string().regex(/^#{prefix}_[0-7][0-9a-hjkmnp-tv-z]{25}$/)|
+      end
+
+      def typescript_valibot_schema(constraints) do
+        prefix = Keyword.fetch!(constraints, :prefix)
+        ~s|v.pipe(v.string(), v.regex(/^#{prefix}_[0-7][0-9a-hjkmnp-tv-z]{25}$/))|
+      end
+    end
+
+    test "uses typescript_zod_schema/1 and typescript_valibot_schema/1 with constraints" do
+      resolved = TypeResolver.resolve(PrefixedUuidType, prefix: "order")
+
+      assert SchemaCore.get_type(ZodSchemaGenerator, resolved) ==
+               ~s|z.string().regex(/^order_[0-7][0-9a-hjkmnp-tv-z]{25}$/)|
+
+      assert SchemaCore.get_type(ValibotSchemaGenerator, resolved) ==
+               ~s|v.pipe(v.string(), v.regex(/^order_[0-7][0-9a-hjkmnp-tv-z]{25}$/))|
+    end
+
+    test "config mapping overrides still take precedence over module callbacks" do
+      previous = Application.get_env(:ash_typescript, :zod_mapping_overrides)
+
+      on_exit(fn ->
+        if is_nil(previous) do
+          Application.delete_env(:ash_typescript, :zod_mapping_overrides)
+        else
+          Application.put_env(:ash_typescript, :zod_mapping_overrides, previous)
+        end
+      end)
+
+      Application.put_env(:ash_typescript, :zod_mapping_overrides, [
+        {PrefixedUuidType, "z.string()"}
+      ])
+
+      resolved = TypeResolver.resolve(PrefixedUuidType, prefix: "order")
+      assert SchemaCore.get_type(ZodSchemaGenerator, resolved) == "z.string()"
+    end
+  end
 end

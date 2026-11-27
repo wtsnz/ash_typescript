@@ -145,10 +145,16 @@ defmodule AshTypescript.Codegen.SchemaCore do
   # used official Ash libraries. A type matching nothing falls back to a schema
   # derived from its `storage_type/1` rather than a flat string — a custom type
   # storing `:integer` validates as a number, not as text.
-  defp map_unknown_module(formatter, %SpecType{module: module} = type_info) do
+  defp map_unknown_module(
+         formatter,
+         %SpecType{module: module, constraints: constraints} = type_info
+       ) do
     cond do
       (override = mapping_override(formatter, module)) != nil ->
         override
+
+      (custom = custom_type_schema(formatter, module, constraints || [])) != nil ->
+        custom
 
       module == AshPostgres.Ltree ->
         if Keyword.get(type_info.constraints || [], :escape?, false),
@@ -177,6 +183,15 @@ defmodule AshTypescript.Codegen.SchemaCore do
   end
 
   defp mapping_override(_formatter, _module), do: nil
+
+  defp custom_type_schema(formatter, module, constraints)
+       when is_atom(module) and not is_nil(module) do
+    if function_exported?(formatter, :custom_type_schema, 2) do
+      formatter.custom_type_schema(module, constraints)
+    end
+  end
+
+  defp custom_type_schema(_formatter, _module, _constraints), do: nil
 
   # Derives a schema from the type's Ash storage type. Unrecognized storage
   # falls through to the permissive `any_schema()` rather than guessing — a

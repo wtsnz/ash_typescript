@@ -80,6 +80,23 @@ defmodule AshTypescript.Codegen.ValibotSchemaGenerator do
   @impl true
   def mapping_overrides, do: AshTypescript.Rpc.valibot_mapping_overrides()
   @impl true
+  def custom_type_schema(module, constraints) do
+    cond do
+      not Code.ensure_loaded?(module) ->
+        nil
+
+      function_exported?(module, :typescript_valibot_schema, 1) ->
+        module.typescript_valibot_schema(constraints)
+
+      function_exported?(module, :typescript_valibot_schema, 0) ->
+        module.typescript_valibot_schema()
+
+      true ->
+        nil
+    end
+  end
+
+  @impl true
   def custom_imports, do: AshTypescript.Rpc.valibot_import_into_generated()
   @impl true
   def aggregate_types, do: @aggregate_types
